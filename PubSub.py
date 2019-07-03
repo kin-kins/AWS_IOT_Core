@@ -1,26 +1,17 @@
-'''
-/*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *  http://aws.amazon.com/apache2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
- '''
-
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 import logging
 import time
 import argparse
 import json
 import random
+import RPi.GPIO as GPIO
+import time
+import smtplib
+GPIO.setmode(GPIO.BCM)
+ledPin = 23 # Broadcom pin 23 (P1 pin 16)
+butPin = 4 # Broadcom pin 17 (P1 pin 11)
+GPIO.setup(23,GPIO.OUT)
+GPIO.setup(4,GPIO.IN)
 
 AllowedActions = ['both', 'publish', 'subscribe']
 
@@ -34,10 +25,10 @@ def customCallback(client, userdata, message):
 
 # Read in command-line parameters
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--endpoint", action="store", required=True, dest="host", help="a32qaa131oyees.iot.us-east-1.amazonaws.com")
-parser.add_argument("-r", "--rootCA", action="store", required=True, dest="rootCAPath", help="x509_root.crt")
-parser.add_argument("-c", "--cert", action="store", dest="certificatePath", help="cdf7b74039-certificate.pem.crt.txt")
-parser.add_argument("-k", "--key", action="store", dest="privateKeyPath", help="cdf7b74039-private.pem.key")
+parser.add_argument("-e", "--endpoint", action="store", required=True, dest="host", help="a1i77s46ymy0cz-ats.iot.us-east-1.amazonaws.com")
+parser.add_argument("-r", "--rootCA", action="store", required=True, dest="rootCAPath", help="rootCA.crt")
+parser.add_argument("-c", "--cert", action="store", dest="certificatePath", help="04fed433aa-certificate.pem.crt")
+parser.add_argument("-k", "--key", action="store", dest="privateKeyPath", help="04fed433aa-private.pem.key")
 parser.add_argument("-w", "--websocket", action="store_true", dest="useWebsocket", default=False,
                     help="Use MQTT over WebSocket")
 parser.add_argument("-id", "--clientId", action="store", dest="clientId", default="basicPubSub",
@@ -93,7 +84,7 @@ myAWSIoTMQTTClient.configureAutoReconnectBackoffTime(1, 32, 20)
 myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
 myAWSIoTMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
 myAWSIoTMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
-myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
+myAWSIoTMQTTClient.configureMQTTOperationTimeout(10)  # 5 sec
 
 # Connect and subscribe to AWS IoT
 myAWSIoTMQTTClient.connect()
@@ -112,12 +103,16 @@ while True:
         python_object = {
                  'Device_ID': 'RaspberryPi3_cdf7',
                  'time' : time.time(),
-                 'Temperature': random.randint(0,100),
-                 'Humidity': random.randint(0,50)
+                 'vibration': GPIO.input(butPin)
                         }
         json_string = json.dumps(python_object)
         myAWSIoTMQTTClient.publish(topic,json_string,1)
         if args.mode == 'publish':
             print('Published topic %s: %s\n' % (topic, json_string))
         loopCount += 1
+        if (GPIO.input(butPin)):
+            GPIO.output(ledPin,GPIO.HIGH) 
+        else:
+            GPIO.output(ledPin,GPIO.LOW)
+            
     time.sleep(3)
